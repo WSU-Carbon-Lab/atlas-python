@@ -6,7 +6,32 @@ readme = "README.md"
 authors = [
     { name = "Harlan D Heilman", email = "73567020+HarlanHeilman@users.noreply.github.com" }
 ]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
+keywords = [
+    "nexafs",
+    "xanes",
+    "x-ray absorption",
+    "spectroscopy",
+    "optical constants",
+    "synchrotron",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Typing :: Typed",
+]
 dependencies = [
     "httpx>=0.28.1",
     "numpy>=2.2.6",
@@ -14,8 +39,15 @@ dependencies = [
     "pydantic>=2",
 ]
 
+[project.urls]
+Homepage = "https://xrayatlas.wsu.edu"
+Documentation = "https://xrayatlas.wsu.edu/docs/python"
+Source = "https://github.com/WSU-Carbon-Lab/atlas-python"
+Issues = "https://github.com/WSU-Carbon-Lab/atlas-python/issues"
+Releases = "https://github.com/WSU-Carbon-Lab/atlas-python/releases"
+
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [dependency-groups]
@@ -43,3 +75,6 @@ known-first-party = ["xrayatlas", "_shared"]
 [tool.mypy]
 strict = true
 python_version = "3.10"
+
+[tool.hatch.build.targets.sdist]
+exclude = [".github", ".python-version", "uv.lock"]

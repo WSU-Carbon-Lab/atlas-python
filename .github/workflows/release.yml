@@ -1,0 +1,136 @@
+# Release: when a push to main touches the package and the version in pyproject.toml has no git
+# tag yet, run CI, build the wheel and sdist, publish to PyPI, then create the tag `vX.Y.Z` and a
+# GitHub release. To release, bump `version` in pyproject.toml (`uv version --bump patch|minor|major`
+# also refreshes uv.lock) in a normal PR and merge it. Pushes that do not change the version find
+# the tag already present and skip.
+#
+# One-time setup: on PyPI, add a trusted publisher for project `xrayatlas` with owner
+# `WSU-Carbon-Lab`, repository `atlas-python`, workflow `release.yml`, environment `pypi`; and
+# create the `pypi` environment in this repository's settings. No API token is stored.
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pyproject.toml
+      - uv.lock
+      - src/**
+      - .github/workflows/release.yml
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build everything but do not publish or tag
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: decide whether to release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      release: ${{ steps.v.outputs.release }}
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - id: v
+        run: |
+          version="$(uv version --short)"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "Tag v$version already exists: nothing to release."
+            release=false
+          else
+            echo "New version v$version: releasing."
+            release=true
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
+  ci:
+    name: tests
+    needs: check
+    if: needs.check.outputs.release == 'true' || inputs.dry_run
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: build wheel and sdist
+    needs: [check, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: build
+        run: uv build --out-dir dist
+      - name: assert artifact names match the release version
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          test -f "dist/xrayatlas-$VERSION-py3-none-any.whl"
+          test -f "dist/xrayatlas-$VERSION.tar.gz"
+      - name: check metadata
+        run: uvx twine check --strict dist/*
+      - name: smoke import from the built wheel
+        run: |
+          uv venv --python 3.10 /tmp/smoke
+          uv pip install --python /tmp/smoke/bin/python dist/*.whl
+          /tmp/smoke/bin/python -c "import xrayatlas, importlib.metadata as m; print('ok', m.version('xrayatlas'))"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  publish-pypi:
+    name: publish to PyPI
+    needs: [check, build]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/xrayatlas
+    permissions:
+      id-token: write # PyPI trusted publishing (OIDC); no API token needed
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          skip-existing: true
+
+  github-release:
+    name: tag and GitHub release
+    needs: [check, publish-pypi]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: create tag and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
