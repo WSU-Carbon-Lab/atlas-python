@@ -9,7 +9,7 @@ tensor payloads you send come from your own analysis code.
 ## Install and login
 
 ```bash
-uv pip install ./extensions/python   # from an Atlas checkout; not on PyPI yet
+uv pip install xrayatlas   # from an Atlas checkout; not on PyPI yet
 ```
 
 The package lives in the `extensions/python` submodule of the Atlas repository. It requires Python
