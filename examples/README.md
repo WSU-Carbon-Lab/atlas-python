@@ -1,7 +1,7 @@
 # Example scripts
 
-Run these from `extensions/python` after `uv pip install ./extensions/python` (or `uv sync`), and
-log in once with `xatlas login` (the [CLI](../README.md#install-and-login) is `extensions/cli`).
+Run these from a checkout of this repository after `uv sync` (or with `pip install xrayatlas`), and
+log in once with `xatlas login` (see the [CLI guide](https://xrayatlas.wsu.edu/docs/cli)).
 Public datasets and public models also read anonymously; writes need a token.
 
 | Script | What it shows |
